@@ -1,6 +1,8 @@
 from rest_framework import viewsets
-from posts.models import Post, Comment, Group
-from .serializers import PostSerializer, CommentSerializer, GroupSerializer
+from posts.models import Post, Comment, Group, Follow
+from .serializers import (
+    PostSerializer, CommentSerializer, GroupSerializer, FollowSerializer)
+from django.shortcuts import get_object_or_404
 
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
@@ -26,3 +28,16 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+    def get_post(self):
+        return get_object_or_404(
+            Post, pk=self.kwargs.get('post_id')
+        )
+
+
+# class FollowViewSet(mixins.CreateModelMixin,
+#                    mixins.ListModelMixin,
+#                    viewsets.GenericViewSet):
+class FollowViewSet(viewsets.ModelViewSet):
+    queryset = Follow.objects.all()
+    serializer_class = FollowSerializer
