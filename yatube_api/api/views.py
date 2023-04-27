@@ -5,6 +5,7 @@ from .serializers import (
 from django.shortcuts import get_object_or_404
 from rest_framework import pagination, permissions
 from .permissions import OwnerOrReadOnly
+from rest_framework.filters import SearchFilter
 
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
@@ -54,6 +55,16 @@ class FollowViewSet(viewsets.ModelViewSet):
 
     pagination_class = pagination.LimitOffsetPagination
     permission_classes = (permissions.IsAuthenticated,)
+    filter_backends = (SearchFilter,)
+    search_fields = ('following__username', 'user__username',)
+
+    def get_queryset(self):
+        """Возвращает все подписки пользователя, сделавшего запрос"""
+        new_queryset = Follow.objects.filter(user=self.request.user)
+        return new_queryset
+
+    def perform_create(self, serializer):
+        return serializer.save(user=self.request.user)
 
     # def perform_create(self, serializer):
     #     serializer.save(author=self.request.user)
