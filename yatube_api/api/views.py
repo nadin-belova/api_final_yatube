@@ -3,9 +3,10 @@ from posts.models import Post, Comment, Group, Follow
 from .serializers import (
     PostSerializer, CommentSerializer, GroupSerializer, FollowSerializer)
 from django.shortcuts import get_object_or_404
-from rest_framework import pagination, permissions
+from rest_framework import pagination, permissions, viewsets
 from .permissions import OwnerOrReadOnly
 from rest_framework.filters import SearchFilter
+from rest_framework.exceptions import ValidationError
 
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
@@ -43,10 +44,6 @@ class CommentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return self.get_post().comments
 
-# class FollowViewSet(mixins.CreateModelMixin,
-#                    mixins.ListModelMixin,
-#                    viewsets.GenericViewSet):
-
 
 class FollowViewSet(viewsets.ModelViewSet):
     queryset = Follow.objects.all()
@@ -59,8 +56,16 @@ class FollowViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Возвращает все подписки пользователя, сделавшего запрос"""
-        new_queryset = Follow.objects.filter(user=self.request.user)
-        return new_queryset
+        qs = Follow.objects.filter(user=self.request.user)
+        return qs
 
     def perform_create(self, serializer):
-        return serializer.save(user=self.request.user)
+        following = serializer.validated_data['following']
+        if following == self.request.user:
+            raise ValidationError("Нельзя подписаться на самого себя")
+        # Проверяем, не подписан ли уже пользователь на данного автора
+        if Follow.objects.filter(user=self.request.user,
+                                 following=following).exists():
+            raise ValidationError("Вы уже подписаны на этого автора")
+
+        serializer.save(user=self.request.user)
