@@ -1,9 +1,8 @@
-from rest_framework import viewsets
-from posts.models import Post, Comment, Group, Follow
+from posts.models import Post, Group, Follow
 from .serializers import (
     PostSerializer, CommentSerializer, GroupSerializer, FollowSerializer)
 from django.shortcuts import get_object_or_404
-from rest_framework import pagination, permissions, viewsets
+from rest_framework import pagination, permissions, viewsets, mixins
 from .permissions import OwnerOrReadOnly
 from rest_framework.filters import SearchFilter
 from rest_framework.exceptions import ValidationError
@@ -17,20 +16,14 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
-
     permission_classes = (OwnerOrReadOnly,)
     pagination_class = pagination.LimitOffsetPagination
-
-    def get_queryset(self):
-        queryset = Post.objects.all()
-        return queryset
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
 
 class CommentViewSet(viewsets.ModelViewSet):
-    queryset = Comment.objects.all()
     serializer_class = CommentSerializer
     permission_classes = (OwnerOrReadOnly,)
 
@@ -42,13 +35,15 @@ class CommentViewSet(viewsets.ModelViewSet):
         return get_object_or_404(Post, pk=self.kwargs.get('post_id'))
 
     def get_queryset(self):
-        return self.get_post().comments
+        post = self.get_post()
+        return post.comments.all()
 
 
-class FollowViewSet(viewsets.ModelViewSet):
+class FollowViewSet(mixins.CreateModelMixin,
+                    mixins.ListModelMixin,
+                    viewsets.GenericViewSet):
     queryset = Follow.objects.all()
     serializer_class = FollowSerializer
-
     pagination_class = pagination.LimitOffsetPagination
     permission_classes = (permissions.IsAuthenticated,)
     filter_backends = (SearchFilter,)
@@ -56,8 +51,8 @@ class FollowViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Возвращает все подписки пользователя, сделавшего запрос"""
-        qs = Follow.objects.filter(user=self.request.user)
-        return qs
+        new_queryset = Follow.objects.filter(user=self.request.user)
+        return new_queryset
 
     def perform_create(self, serializer):
         following = serializer.validated_data['following']
